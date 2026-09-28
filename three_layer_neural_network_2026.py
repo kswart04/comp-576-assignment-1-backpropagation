@@ -73,9 +73,7 @@ class NeuralNetwork(object):
         :param type: Tanh, Sigmoid, or ReLU
         :return: activations
         '''
-
         type = type.lower()
-
         if type == 'tanh':
             return np.tanh(z)
         elif type == 'sigmoid':
@@ -83,7 +81,8 @@ class NeuralNetwork(object):
         elif type == 'relu':
             return np.maximum(0, z)
         else:
-            raise ValueError("Activation type must be 'tanh', 'sigmoid', or 'relu'.")
+            raise ValueError("Activation function type must be 'Tanh', 'Sigmoid', or 'ReLU'")
+
 
     def diff_actFun(self, z, type):
         '''
@@ -207,6 +206,13 @@ def main():
     )
     plt.savefig("make_moons.png")
     plt.show()
+
+    # I added the following just to test the functionality of actFun(self, z, type):
+    # model = NeuralNetwork(nn_input_dim=2, nn_hidden_dim=3, nn_output_dim=2)
+    # z = np.array([-2.0, -0.5, 0.0, 0.5, 2.0])
+    # for activation in ('tanh', 'sigmoid', 'relu'):
+    #     output = model.actFun(z, type=activation)
+    #     print(f"{activation}: {np.round(output, 4)}")
 
     # model = NeuralNetwork(nn_input_dim=2, nn_hidden_dim=3 , nn_output_dim=2, actFun_type='tanh')
     # model.fit_model(X,y)
