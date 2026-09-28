@@ -74,6 +74,7 @@ class NeuralNetwork(object):
         :return: activations
         '''
         type = type.lower()
+
         if type == 'tanh':
             return np.tanh(z)
         elif type == 'sigmoid':
@@ -91,10 +92,17 @@ class NeuralNetwork(object):
         :param type: Tanh, Sigmoid, or ReLU
         :return: the derivatives of the activation functions wrt the net input
         '''
+        type = type.lower()
 
-        # YOU IMPLEMENT YOUR diff_actFun HERE
-
-        return None
+        if type == 'tanh':
+            return 1.0 - np.tanh(z) ** 2
+        elif type == 'sigmoid':
+            activation = self.actFun(z, type="sigmoid")
+            return activation * (1.0 - activation)
+        elif type == 'relu':
+            return (np.asarray(z) > 0).astype(float)
+        else:
+            raise ValueError("Activation function type must be 'Tanh', 'Sigmoid', or 'ReLU'")
 
     def feedforward(self, X, actFun):
         '''
