@@ -112,13 +112,12 @@ class NeuralNetwork(object):
         :param actFun: activation function
         :return:
         '''
-
-        # YOU IMPLEMENT YOUR feedforward HERE
-
-        # self.z1 =
-        # self.a1 =
-        # self.z2 =
-        # self.probs =
+        self.z1 = X @ self.W1 + self.b1
+        self.a1 = actFun(self.z1)
+        self.z2 = self.a1 @ self.W2 + self.b2
+        shifted_scores = self.z2 - np.max(self.z2, axis=1, keepdims=True)
+        exp_scores = np.exp(shifted_scores)
+        self.probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
         return None
 
     def calculate_loss(self, X, y):
@@ -213,7 +212,7 @@ def main():
         s=40, c=y, cmap=plt.cm.Spectral
     )
     plt.savefig("make_moons.png")
-    plt.show()
+    # plt.show()
 
     # I added the following just to test the functionality of actFun(self, z, type):
     # model = NeuralNetwork(nn_input_dim=2, nn_hidden_dim=3, nn_output_dim=2)
@@ -225,6 +224,16 @@ def main():
     # model = NeuralNetwork(nn_input_dim=2, nn_hidden_dim=3 , nn_output_dim=2, actFun_type='tanh')
     # model.fit_model(X,y)
     # model.visualize_decision_boundary(X,y)
+
+    # I added the following just to test the functionality of feedforward(self, X, actFun):
+    # Here you can see I copied the network-layer dimensionality that is displayed in Figure 1 on page 3.
+    model = NeuralNetwork(nn_input_dim=2, nn_hidden_dim=3, nn_output_dim=2)
+    # Here I selected a point's two coordinates from the Make Moons dataset,as well as calling actFun for z.
+    model.feedforward(X[0], lambda z: model.actFun(z, type=model.actFun_type))
+    # Below are some outputs to validate that the functionality is working as expected.
+    print("Input point:", X[0])
+    print("Class probabilities:", np.round(model.probs[0], 4))
+    print("Probability sum:", model.probs[0].sum())
 
 if __name__ == "__main__":
     main()
