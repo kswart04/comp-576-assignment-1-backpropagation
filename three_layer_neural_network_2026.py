@@ -130,10 +130,9 @@ class NeuralNetwork(object):
         num_examples = len(X)
         self.feedforward(X, lambda x: self.actFun(x, type=self.actFun_type))
         # Calculating the loss
-
-        # YOU IMPLEMENT YOUR CALCULATION OF THE LOSS HERE
-
-        # data_loss =
+        shifted_scores = self.z2 - np.max(self.z2, axis=1, keepdims=True)
+        log_probs = shifted_scores - np.log(np.sum(np.exp(shifted_scores), axis=1, keepdims=True))
+        data_loss = -np.sum(log_probs[np.arrange(num_examples), y])
 
         # Add regulatization term to loss (optional)
         data_loss += self.reg_lambda / 2 * (np.sum(np.square(self.W1)) + np.sum(np.square(self.W2)))
