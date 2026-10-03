@@ -132,7 +132,7 @@ class NeuralNetwork(object):
         # Calculating the loss
         shifted_scores = self.z2 - np.max(self.z2, axis=1, keepdims=True)
         log_probs = shifted_scores - np.log(np.sum(np.exp(shifted_scores), axis=1, keepdims=True))
-        data_loss = -np.sum(log_probs[np.arrange(num_examples), y])
+        data_loss = -np.sum(log_probs[np.arange(num_examples), y])
 
         # Add regulatization term to loss (optional)
         data_loss += self.reg_lambda / 2 * (np.sum(np.square(self.W1)) + np.sum(np.square(self.W2)))
@@ -154,13 +154,21 @@ class NeuralNetwork(object):
         :param y: given labels
         :return: dL/dW1, dL/b1, dL/dW2, dL/db2
         '''
+        # For backprop, we are making use of the results from feedforward - as shwon in the fit_model function.
+        # Here, we are essentially just supplying the gradeints that fit_model uses.
+        num_examples = len(X)
+        delta2 = self.probs.copy()
+        # We do -= 1 here (making it (P-Y)/N) so we don't have to create a separate one-hot label matrix.
+        delta2[np.arange(num_examples), y] -= 1
+        delta2 /= num_examples
 
-        # IMPLEMENT YOUR BACKPROP HERE
+        dW2 = self.a1.T @ delta2
+        db2 = np.sum(delta2, axis=0, keepdims=True)
 
-        # dW2 = dL/dW2
-        # db2 = dL/db2
-        # dW1 = dL/dW1
-        # db1 = dL/db1
+        delta1 = (delta2 @ self.W2.T) * self.diff_actFun(self.z1, self.actFun_type)
+        dW1 = X.T @ delta1
+        db1 = np.sum(delta1, axis=0, keepdims=True)
+
         return dW1, dW2, db1, db2
 
     def fit_model(self, X, y, epsilon=0.01, num_passes=20000, print_loss=True):
@@ -226,13 +234,27 @@ def main():
 
     # I added the following just to test the functionality of feedforward(self, X, actFun):
     # Here you can see I copied the network-layer dimensionality that is displayed in Figure 1 on page 3.
-    model = NeuralNetwork(nn_input_dim=2, nn_hidden_dim=3, nn_output_dim=2)
+    # model = NeuralNetwork(nn_input_dim=2, nn_hidden_dim=3, nn_output_dim=2)
     # Here I selected a point's two coordinates from the Make Moons dataset,as well as calling actFun for z.
-    model.feedforward(X[0], lambda z: model.actFun(z, type=model.actFun_type))
+    # model.feedforward(X[0], lambda z: model.actFun(z, type=model.actFun_type))
     # Below are some outputs to validate that the functionality is working as expected.
-    print("Input point:", X[0])
-    print("Class probabilities:", np.round(model.probs[0], 4))
-    print("Probability sum:", model.probs[0].sum())
+    # print("Input point:", X[0])
+    # print("Class probabilities:", np.round(model.probs[0], 4))
+    # print("Probability sum:", model.probs[0].sum())
+
+    # I added the following to test out the functionality for backprop
+    # We make use of a single Make Moons point and its label, run feedforward ffirst, and then print out
+    # the gradients and check each has the same shap as its parameter.
+    model = NeuralNetwork(nn_input_dim=2, nn_hidden_dim=3, nn_output_dim=2)
+    model.feedforward(X[:1], lambda z: model.actFun(z, type=model.actFun_type))
+    dW1, dW2, db1, db2 = model.backprop(X[:1], y[:1])
+    print("Correct class:", y[0])
+    for name, gradient, parameter in (
+        ("dW1", dW1, model.W1), ("dW2", dW2, model.W2),
+        ("db1", db1, model.b1), ("db2", db2, model.b2),
+    ):
+        assert gradient.shape == parameter.shape
+        print(f"{name} ({gradient.shape}):\n{np.round(gradient, 4)}")
 
 if __name__ == "__main__":
     main()
