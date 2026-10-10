@@ -188,8 +188,8 @@ class NeuralNetwork(object):
             dW1, dW2, db1, db2 = self.backprop(X, y)
 
             # Add derivatives of regularization terms (b1 and b2 don't have regularization terms)
-            dW2 += self.reg_lambda * self.W2
-            dW1 += self.reg_lambda * self.W1
+            dW2 += (self.reg_lambda / len(X)) * self.W2
+            dW1 += (self.reg_lambda / len(X)) * self.W1
 
             # Gradient descent parameter update
             self.W1 += -epsilon * dW1
@@ -211,14 +211,26 @@ class NeuralNetwork(object):
         '''
         plot_decision_boundary(lambda x: self.predict(x), X, y)
 
+        # Save the same decision boundary without changing the supplied plot helper.
+        x_min, x_max = X[:, 0].min() - .5, X[:, 0].max() + .5
+        y_min, y_max = X[:, 1].min() - .5, X[:, 1].max() + .5
+        xx, yy = np.meshgrid(np.arange(x_min, x_max, .01), np.arange(y_min, y_max, .01))
+        Z = self.predict(np.c_[xx.ravel(), yy.ravel()]).reshape(xx.shape)
+        plt.figure(figsize=(6, 5))
+        plt.contourf(xx, yy, Z, cmap=plt.cm.Spectral)
+        plt.scatter(X[:, 0], X[:, 1], c=y, cmap=plt.cm.Spectral)
+        plt.xlabel("First coordinate")
+        plt.ylabel("Second coordinate")
+        plt.close()
+
 def main():
-    # # generate and visualize Make-Moons dataset
+    # Train the same network with each activation function (Assignment 1(e)(1)).
     X, y = generate_data()
-    plt.scatter(
-        X[:, 0], X[:, 1],
-        s=40, c=y, cmap=plt.cm.Spectral
-    )
-    plt.savefig("make_moons.png")
+    # plt.scatter(
+    #     X[:, 0], X[:, 1],
+    #     s=40, c=y, cmap=plt.cm.Spectral
+    # )
+    # plt.savefig("make_moons.png")
     # plt.show()
 
     # I added the following just to test the functionality of actFun(self, z, type):
@@ -245,16 +257,29 @@ def main():
     # I added the following to test out the functionality for backprop
     # We make use of a single Make Moons point and its label, run feedforward ffirst, and then print out
     # the gradients and check each has the same shap as its parameter.
-    model = NeuralNetwork(nn_input_dim=2, nn_hidden_dim=3, nn_output_dim=2)
-    model.feedforward(X[:1], lambda z: model.actFun(z, type=model.actFun_type))
-    dW1, dW2, db1, db2 = model.backprop(X[:1], y[:1])
-    print("Correct class:", y[0])
-    for name, gradient, parameter in (
-        ("dW1", dW1, model.W1), ("dW2", dW2, model.W2),
-        ("db1", db1, model.b1), ("db2", db2, model.b2),
-    ):
-        assert gradient.shape == parameter.shape
-        print(f"{name} ({gradient.shape}):\n{np.round(gradient, 4)}")
+    # model = NeuralNetwork(nn_input_dim=2, nn_hidden_dim=3, nn_output_dim=2)
+    # model.feedforward(X[:1], lambda z: model.actFun(z, type=model.actFun_type))
+    # dW1, dW2, db1, db2 = model.backprop(X[:1], y[:1])
+    # print("Correct class:", y[0])
+    # for name, gradient, parameter in (
+    #     ("dW1", dW1, model.W1), ("dW2", dW2, model.W2),
+    #     ("db1", db1, model.b1), ("db2", db2, model.b2),
+    # ):
+    #     assert gradient.shape == parameter.shape
+    #     print(f"{name} ({gradient.shape}):\n{np.round(gradient, 4)}")
+
+    # The below code is for displaying the results of our backpropogation
+    for activation in ("tanh", "sigmoid", "relu"):
+        model = NeuralNetwork(2, 3, 2, actFun_type=activation, seed=0)
+        initial_loss = model.calculate_loss(X, y)
+        model.fit_model(X, y, print_loss=False)
+        final_loss = model.calculate_loss(X, y)
+        accuracy = np.mean(model.predict(X) == y)
+        model.visualize_decision_boundary(X, y)
+        print(
+            f"{activation}: initial loss={initial_loss:.4f}, "
+            f"final loss={final_loss:.4f}, training accuracy={accuracy:.1%}, "
+        )
 
 if __name__ == "__main__":
     main()
