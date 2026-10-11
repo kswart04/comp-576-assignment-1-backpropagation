@@ -211,18 +211,6 @@ class NeuralNetwork(object):
         '''
         plot_decision_boundary(lambda x: self.predict(x), X, y)
 
-        # Save the same decision boundary without changing the supplied plot helper.
-        x_min, x_max = X[:, 0].min() - .5, X[:, 0].max() + .5
-        y_min, y_max = X[:, 1].min() - .5, X[:, 1].max() + .5
-        xx, yy = np.meshgrid(np.arange(x_min, x_max, .01), np.arange(y_min, y_max, .01))
-        Z = self.predict(np.c_[xx.ravel(), yy.ravel()]).reshape(xx.shape)
-        plt.figure(figsize=(6, 5))
-        plt.contourf(xx, yy, Z, cmap=plt.cm.Spectral)
-        plt.scatter(X[:, 0], X[:, 1], c=y, cmap=plt.cm.Spectral)
-        plt.xlabel("First coordinate")
-        plt.ylabel("Second coordinate")
-        plt.close()
-
 def main():
     # Train the same network with each activation function (Assignment 1(e)(1)).
     X, y = generate_data()
@@ -232,6 +220,8 @@ def main():
     # )
     # plt.savefig("make_moons.png")
     # plt.show()
+
+    ###
 
     # I added the following just to test the functionality of actFun(self, z, type):
     # model = NeuralNetwork(nn_input_dim=2, nn_hidden_dim=3, nn_output_dim=2)
@@ -244,6 +234,8 @@ def main():
     # model.fit_model(X,y)
     # model.visualize_decision_boundary(X,y)
 
+    ###
+
     # I added the following just to test the functionality of feedforward(self, X, actFun):
     # Here you can see I copied the network-layer dimensionality that is displayed in Figure 1 on page 3.
     # model = NeuralNetwork(nn_input_dim=2, nn_hidden_dim=3, nn_output_dim=2)
@@ -253,6 +245,8 @@ def main():
     # print("Input point:", X[0])
     # print("Class probabilities:", np.round(model.probs[0], 4))
     # print("Probability sum:", model.probs[0].sum())
+
+    ###
 
     # I added the following to test out the functionality for backprop
     # We make use of a single Make Moons point and its label, run feedforward ffirst, and then print out
@@ -268,18 +262,40 @@ def main():
     #     assert gradient.shape == parameter.shape
     #     print(f"{name} ({gradient.shape}):\n{np.round(gradient, 4)}")
 
+    ###
+
     # The below code is for displaying the results of our backpropogation
-    for activation in ("tanh", "sigmoid", "relu"):
-        model = NeuralNetwork(2, 3, 2, actFun_type=activation, seed=0)
+    # for activation in ("tanh", "sigmoid", "relu"):
+    #     model = NeuralNetwork(2, 3, 2, actFun_type=activation, seed=0)
+    #     initial_loss = model.calculate_loss(X, y)
+    #     model.fit_model(X, y, print_loss=False)
+    #     final_loss = model.calculate_loss(X, y)
+    #     accuracy = np.mean(model.predict(X) == y)
+    #     model.visualize_decision_boundary(X, y)
+    #     print(
+    #         f"{activation}: initial loss={initial_loss:.4f}, "
+    #         f"final loss={final_loss:.4f}, training accuracy={accuracy:.1%}, "
+    #     )
+
+    # The below section is to compare hidden-layer widths using Tanh.
+    # I made use of the following hidden dimension values: {3, 6, 12}
+    for hidden_dim in (3, 6, 12):
+        model = NeuralNetwork(2, hidden_dim, 2, actFun_type="tanh", seed=0)
         initial_loss = model.calculate_loss(X, y)
         model.fit_model(X, y, print_loss=False)
         final_loss = model.calculate_loss(X, y)
         accuracy = np.mean(model.predict(X) == y)
-        model.visualize_decision_boundary(X, y)
         print(
-            f"{activation}: initial loss={initial_loss:.4f}, "
-            f"final loss={final_loss:.4f}, training accuracy={accuracy:.1%}, "
+            f"Tanh, {hidden_dim} hidden units: "
+            f"initial loss={initial_loss:.4f}, "
+            f"final loss={final_loss:.4f}, "
+            f"training accuracy={accuracy:.1%}",
+            flush=True,
         )
+        plt.figure()
+        plt.title(f"Tanh decision boundary ({hidden_dim} hidden units)")
+        model.visualize_decision_boundary(X, y)
+        plt.close()
 
 if __name__ == "__main__":
     main()
