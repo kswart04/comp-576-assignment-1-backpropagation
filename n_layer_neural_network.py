@@ -50,6 +50,10 @@ class DeepNeuralNetwork(NeuralNetwork):
 
         return None
 
+    def predict(self, X):
+        self.feedforward(X)
+        return np.argmax(self.probs, axis=1)
+
 
     def backprop(self, X, y):
         dW = [None] * len(self.weights)
@@ -97,7 +101,7 @@ class DeepNeuralNetwork(NeuralNetwork):
             dW, db = self.backprop(X, y)
 
             for j in range(len(self.weights)):
-                dW[i] += (self.reg_lambda / len(X)) * self.weights[i]
+                dW[j] += (self.reg_lambda / len(X)) * self.weights[j]
                 self.weights[j] += -epsilon * dW[j]
                 self.biases[j] += -epsilon * db[j]
 
