@@ -69,16 +69,30 @@ transform=transforms.Compose([
             transforms.Normalize((0.01307,), (0.3081,))
 ])
 
-train_loader = [insert-code]
+train_dataset = datasets.MNIST(
+    root="data", train=True, download=True, transform=transform
+)
 
-test_loader = [insert-code]
+train_loader = torch.utils.data.DataLoader(
+    train_dataset, batch_size=64, shuffle=True
+)
+
+test_dataset = datasets.MNIST(
+    root="data", train=False, download=True, transform=transform
+)
+
+test_loader = torch.utils.data.DataLoader(
+    test_dataset, batch_size=1000, shuffle=False
+)
+
+images, labels = next(iter(train_loader))
+print(images.shape, labels.shape)
 
 # Defining Architecture,loss and optimizer
 class Net(nn.Module):
     def __init__(self):
-
         super(Net, self).__init__()
-        self.conv1 = [insert-code]
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=5)
         self.conv2 = [insert-code]
         self.drop = [insert-code]
         self.fc1 = [insert-code]
