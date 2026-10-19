@@ -1,4 +1,10 @@
+from three_layer_neural_network_2026 import generate_data, plot_decision_boundary
+import matplotlib.pyplot as plt
 import numpy as np
+from sklearn.datasets import load_wine
+from sklearn.metrics import ConfusionMatrixDisplay
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
 from three_layer_neural_network_2026 import NeuralNetwork
 
@@ -107,3 +113,92 @@ class DeepNeuralNetwork(NeuralNetwork):
 
             if print_loss and i % 1000 == 0:
                 print("Loss after iteration %i: %f" % (i, self.calculate_loss(X, y)))
+
+
+def run_make_moons_activation_experiment():
+    X, y = generate_data()
+    layer_sizes = [2, 8, 8, 8, 2]
+
+    for activation in ("tanh", "sigmoid", "relu"):
+        model = DeepNeuralNetwork(
+            num_layers=len(layer_sizes),
+            layer_sizes=layer_sizes,
+            actFun_type=activation,
+            reg_lambda=0.01,
+            seed=0,
+        )
+
+        initial_loss = model.calculate_loss(X, y)
+        model.fit_model(
+            X, y, epsilon=0.01, num_passes=20000, print_loss=False
+        )
+        final_loss = model.calculate_loss(X, y)
+        accuracy = np.mean(model.predict(X) == y)
+
+        print(
+            f"{activation.title()}, {len(layer_sizes)} Layers {layer_sizes}: "
+            f"Initial Loss={initial_loss:.4f}, "
+            f"Final Loss={final_loss:.4f}, "
+            f"Training Accuracy={accuracy:.1%}"
+        )
+
+        plt.figure()
+        plt.title(f"{activation.title()} decision boundary: {layer_sizes}")
+        plot_decision_boundary(model.predict, X, y)
+
+
+def main(num_passes=20000):
+    wine = load_wine()
+    X_train, X_test, y_train, y_test = train_test_split(
+        wine.data, wine.target, test_size=0.2, random_state=0,
+        stratify=wine.target,
+    )
+
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+
+    # Compare activations with the same three-layer architecture.
+    configurations = [
+        ([13, 8, 3], "tanh"),
+        ([13, 8, 3], "sigmoid"),
+        ([13, 8, 3], "relu"),
+    ]
+
+    for layer_sizes, activation in configurations:
+        model = DeepNeuralNetwork(
+            num_layers=len(layer_sizes),
+            layer_sizes=layer_sizes,
+            actFun_type=activation,
+            reg_lambda=0.01,
+            seed=0,
+        )
+        initial_loss = model.calculate_loss(X_train, y_train)
+        model.fit_model(
+            X_train, y_train, epsilon=0.01,
+            num_passes=num_passes, print_loss=False,
+        )
+        final_loss = model.calculate_loss(X_train, y_train)
+        train_accuracy = np.mean(model.predict(X_train) == y_train)
+        test_predictions = model.predict(X_test)
+        test_accuracy = np.mean(test_predictions == y_test)
+
+        print(
+            f"{activation.title()}, {layer_sizes}: "
+            f"Initial Loss={initial_loss:.4f}, "
+            f"Final Loss={final_loss:.4f}, "
+            f"Training Accuracy={train_accuracy:.1%}, "
+            f"Test Accuracy={test_accuracy:.1%}",
+            flush=True,
+        )
+
+        ConfusionMatrixDisplay.from_predictions(
+            y_test, test_predictions,
+            display_labels=wine.target_names,
+        )
+        plt.title(f"Wine test predictions: {activation.title()} {layer_sizes}")
+        plt.show()
+
+
+if __name__ == "__main__":
+    main()
