@@ -40,33 +40,34 @@ from torchvision import datasets, transforms
 
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
-import os
 from pathlib import Path
 
 batch_size = 64
 test_batch_size = 1000
 epochs = 10
-lr = 0.01
+lr = 0.001
 try_cuda = True
 seed = 1000
 logging_interval = 10 # how many batches to wait before logging
 logging_dir = None
+activation_name = "relu"
+experiment_name = "adagrad_relu"
 
 # 1) setting up the logging
-[insert-code: set up logging]
+logging_dir = Path(__file__).resolve().parent / "runs" / f"{datetime.now():%Y%m%d-%H%M%S}-{experiment_name}"
+writer = SummaryWriter(log_dir=str(logging_dir))
 
-#deciding whether to send to the cpu or not if available
-if torch.cuda.is_available() and try_cuda:
-    cuda = True
-    torch.cuda.manual_seed(seed)
+torch.manual_seed(seed)
+
+if torch.backends.mps.is_available():
+    device = torch.device("mps")
 else:
-    cuda = False
-    torch.manual_seed(seed)
+    device = torch.device("cpu")
 
 # Setting up data
 transform=transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize((0.01307,), (0.3081,))
+            transforms.Normalize((0.1307,), (0.3081,))
 ])
 
 train_dataset = datasets.MNIST(
@@ -93,93 +94,144 @@ class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
         self.conv1 = nn.Conv2d(1, 32, kernel_size=5)
-        self.conv2 = [insert-code]
-        self.drop = [insert-code]
-        self.fc1 = [insert-code]
-        self.fc2 = [insert-code]
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=5)
+        self.drop = nn.Dropout(p=0.5)
+        self.fc1 = nn.Linear(1024, 1024)
+        self.fc2 = nn.Linear(1024, 10)
+        self.activation = nn.ReLU()
 
     def forward(self, x):
-
-        x = [insert-code]
-        x = [insert-code]
-        x = [insert-code]
-        x = [insert-code]
-        x = [insert-code]
-        x = [insert-code]
+        conv1_net_input = self.conv1(x)
+        self.conv1_net_input = conv1_net_input.detach()
+        conv1_activation = self.activation(conv1_net_input)
+        self.conv1_activation = conv1_activation.detach()
+        x = F.max_pool2d(conv1_activation, kernel_size=2)
+        self.pool1_output = x.detach()
+        conv2_net_input = self.conv2(x)
+        self.conv2_net_input = conv2_net_input.detach()
+        conv2_activation = self.activation(conv2_net_input)
+        self.conv2_activation = conv2_activation.detach()
+        x = F.max_pool2d(conv2_activation, kernel_size=2)
+        self.pool2_output = x.detach()
+        x = torch.flatten(x, start_dim=1)
+        fc1_net_input = self.fc1(x)
+        self.fc1_net_input = fc1_net_input.detach()
+        x = self.activation(fc1_net_input)
+        self.fc1_activation = x.detach()
+        x = self.drop(x)
+        x = self.fc2(x)
+        self.fc2_net_input = x.detach()
         x = F.softmax(x,dim=1)
 
         return x
 
-[insert-code: instantiate model]
+model = Net().to(device)
+print("Using device: ", device)
 
-optimizer = [insert-code: USE AN ADAM OPTIMIZER]
+# Use the same test images when comparing internal values across epochs.
+monitor_images, _ = next(iter(test_loader))
+monitor_images = monitor_images[:64].to(device)
+
+optimizer = optim.Adagrad(model.parameters(), lr=lr)
 
 
 # Defining the test and trainig loops
 eps=1e-13
 
+def log_tensor_stats(name, tensor, step):
+    values = tensor.detach().float().cpu()
+    writer.add_scalar(f"{name}/min", values.min().item(), step)
+    writer.add_scalar(f"{name}/max", values.max().item(), step)
+    writer.add_scalar(f"{name}/mean", values.mean().item(), step)
+    writer.add_scalar(f"{name}/std", values.std(unbiased=False).item(), step)
+    writer.add_histogram(f"{name}/histogram", values, step)
+
 def train(epoch):
     model.train()
+    epoch_loss = 0.0
 
     #criterion = nn.CrossEntropyLoss()
-    criterion = [insert-code]
+    criterion = nn.NLLLoss()
 
     for batch_idx, (data, target) in enumerate(train_loader):
-        if cuda:
-            data, target = data.cuda(), target.cuda()
+        data = data.to(device)
+        target = target.to(device)
 
-        optimizer.[insert-code]
-        output = [insert-code]
+        optimizer.zero_grad()
+        output = model(data)
         loss = criterion(torch.log(output+eps), target) # = sum_k(-t_k * log(y_k))
-        loss[insert-code]
-        optimizer[insert-code]
+        loss.backward()
+        optimizer.step()
+        epoch_loss += loss.item() * data.size(0)
 
         if batch_idx % logging_interval == 0:
-            [inset-code: print and log the performance]
+            n_iter = (epoch - 1) * len(train_loader) + batch_idx
+            print(f"Epoch {epoch}, batch {batch_idx}: loss={loss.item():.4f}")
+            writer.add_scalar("train/loss", loss.item(), n_iter)
 
-    # Log model parameters to TensorBoard at every epoch
+    writer.add_scalar("train/epoch_loss", epoch_loss / len(train_loader.dataset), epoch)
+
+    # Log weights and biases after each epoch.
     for name, param in model.named_parameters():
-        layer, attr = os.path.splitext(name)
-        attr = attr[1:]
-        writer.add_histogram(
-            f'{layer}/{attr}',
-            param.clone().cpu().data.numpy(),
-            n_iter)
+        log_tensor_stats(name.replace(".", "/"), param, epoch)
 
 
 
 def test(epoch):
     model.eval()
-    test_loss = 0
+    test_loss = 0.0
     correct = 0
     #criterion = nn.CrossEntropyLoss()
 
     #criterion = nn.CrossEntropyLoss(size_average = False)
-    criterion = nn.NLLLoss(size_average = False)
 
-    for data, target in test_loader:
-        if cuda:
-            data, target = data.cuda(), target.cuda()
+    with torch.no_grad():
+        for data, target in test_loader:
+            data = data.to(device)
+            target = target.to(device)
 
-        output = model(data)
+            output = model(data)
+            test_loss += F.nll_loss(
+                torch.log(output + eps), target, reduction="sum"
+            ).item()
 
-        test_loss += criterion(torch.log(output+eps), target,).item() # sum up batch loss (later, averaged over all test samples)
-        pred = [insert-code] # get the index of the max log-probability
-        correct += [insert-code]
+            pred = output.argmax(dim=1)
+            correct += (pred == target).sum().item()
+
+        model(monitor_images)
+
+    log_tensor_stats("conv1/net_input", model.conv1_net_input, epoch)
+    log_tensor_stats(f"conv1/{activation_name}", model.conv1_activation, epoch)
+    log_tensor_stats("pool1/output", model.pool1_output, epoch)
+    log_tensor_stats("conv2/net_input", model.conv2_net_input, epoch)
+    log_tensor_stats(f"conv2/{activation_name}", model.conv2_activation, epoch)
+    log_tensor_stats("pool2/output", model.pool2_output, epoch)
+    log_tensor_stats("fc1/net_input", model.fc1_net_input, epoch)
+    log_tensor_stats(f"fc1/{activation_name}", model.fc1_activation, epoch)
+    log_tensor_stats("fc2/net_input", model.fc2_net_input, epoch)
 
     test_loss /= len(test_loader.dataset)
     test_accuracy = 100. * correct / len(test_loader.dataset)
-    [insert-code: print the performance]
+    test_error = 100. - test_accuracy
+    print(
+        f"Epoch {epoch}: test loss={test_loss:.4f}, "
+        f"test accuracy={test_accuracy:.2f}%"
+    )
 
-    # Log test/loss and test/accuracy to TensorBoard at every epoch
+    # Log test metrics to TensorBoard after each epoch.
     n_iter = epoch * len(train_loader)
-    [insert-code: log the performance]
+    writer.add_scalar("test/loss", test_loss, n_iter)
+    writer.add_scalar("test/accuracy", test_accuracy, n_iter)
+    writer.add_scalar("test/error", test_error, epoch)
 
 # Training loop
 
-[insert-code: running test and training over epoch]
+if __name__ == "__main__":
+    for epoch in range(1, epochs + 1):
+        train(epoch)
+        test(epoch)
 
-writer.close()
+    writer.close()
 
 # Commented out IPython magic to ensure Python compatibility.
 """
